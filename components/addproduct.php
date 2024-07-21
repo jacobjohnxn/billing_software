@@ -1,8 +1,8 @@
 <?php
 include "./connection.php";
 session_start();
-if ($_SESSION['role'] !== 'admin') {
-    header("Location: ./auth.php"); 
+if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
+    header("Location: login.php");
     exit();
 }
 

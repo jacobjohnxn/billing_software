@@ -1,47 +1,52 @@
 <?php
 session_start();
-include 'connection.php'; // Make sure this points to your database connection file
+include 'connection.php';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
-    $cart_data = json_decode($_POST['cart_data'], true);
+    $cart_data = $_SESSION['cart'];
     
     if (!empty($cart_data)) {
         try {
-            // Start transaction
             $conn->begin_transaction();
 
             foreach ($cart_data as $item) {
-                $product_id = $item['id'];
+                $product_id = $item['product_id'];
                 $quantity_ordered = $item['quantity'];
 
-                // Update product quantity in database
-                $stmt = $conn->prepare("UPDATE products SET quantity = quantity - ? WHERE id = ? AND quantity >= ?");
-                $stmt->bind_param("iii", $quantity_ordered, $product_id, $quantity_ordered);
+                $stmt = $conn->prepare("SELECT quantity FROM products WHERE id = ?");
+                $stmt->bind_param("i", $product_id);
                 $stmt->execute();
+                $result = $stmt->get_result();
+                $product = $result->fetch_assoc();
 
-                if ($stmt->affected_rows == 0) {
-                    // If no rows were updated, it means there's not enough quantity
+                if (!$product) {
+                    throw new Exception("Product not found: " . $product_id);
+                }
+
+                if ($product['quantity'] < $quantity_ordered) {
                     throw new Exception("Not enough quantity for product ID: " . $product_id);
                 }
+
+                $stmt = $conn->prepare("UPDATE products SET quantity = quantity - ? WHERE id = ?");
+                $stmt->bind_param("ii", $quantity_ordered, $product_id);
+                $stmt->execute();
             }
 
-            // If we've made it this far without throwing an exception, commit the transaction
             $conn->commit();
 
             // Clear the cart
             $_SESSION['cart'] = [];
 
-            echo "Checkout successful! Database updated.";
+            $message = "Checkout successful! Product quantities updated.";
         } catch (Exception $e) {
-            // An error occurred, rollback the transaction
             $conn->rollback();
-            echo "Error during checkout: " . $e->getMessage();
+            $message = "Error during checkout: " . $e->getMessage();
         }
     } else {
-        echo "Cart is empty";
+        $message = "Cart is empty";
     }
 } else {
-    echo "Invalid request";
+    $message = "Invalid request";
 }
 ?>
 
@@ -56,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['checkout'])) {
 <body class="bg-gray-100 p-8">
     <div class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden md:max-w-2xl p-6">
         <h1 class="text-2xl font-bold mb-4">Checkout Result</h1>
-        <p class="mb-4"><?php echo isset($message) ? $message : ''; ?></p>
+        <p class="mb-4"><?php echo $message; ?></p>
         <a href="contents.php" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
             Return to Product List
         </a>

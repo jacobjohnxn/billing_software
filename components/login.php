@@ -1,5 +1,6 @@
 <?php 
 include('connection.php');
+
 session_start();
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -15,8 +16,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if ($result->num_rows > 0) {
         // Redirect to contents page on successful login
         $_SESSION['email'] = $email; // Set this after successful login
-
-        header("Location: /billing/components/contents.php");
+        $_SESSION['authenticated'] = true; 
+        header("Location: components/contents.php");
         exit();
     } else {
         // Display an error message on failed login
